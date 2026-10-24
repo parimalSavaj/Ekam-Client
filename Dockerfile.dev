@@ -9,7 +9,7 @@ RUN npm ci
 
 COPY . .
 
-EXPOSE 3000
-
-# Listen on all interfaces so the host can reach the dev server
-CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
+# The port comes from the PORT environment variable set by Compose.
+# Listen on all interfaces so the host can reach the dev server.
+# --webpack because Turbopack ignores file polling, which is needed on Windows.
+CMD ["npm", "run", "dev", "--", "--webpack", "--hostname", "0.0.0.0"]
