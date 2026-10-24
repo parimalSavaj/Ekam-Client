@@ -1,0 +1,15 @@
+# Development image for the Ekam client. Source code is bind-mounted at runtime
+# (see the root docker-compose.yml), so only dependencies are baked in here.
+FROM node:24-slim
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+EXPOSE 3000
+
+# Listen on all interfaces so the host can reach the dev server
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]
