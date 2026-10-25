@@ -61,6 +61,12 @@ For banners, pair `bg-success-bg` with `text-success-foreground` (or the corresp
 
 Primary buttons use the requested white-on-coral combination. Its normal-state contrast is approximately 3.42:1, below the 4.5:1 target for small text; it is not an accessibility-compliant small-text pairing. Small text links use the foreground color with a coral underline instead. Increasing font weight alone does not fix insufficient color contrast.
 
-Notebook examples are interactive illustrations. Authentication, real notebooks, and backend connections come in later migration stages. All packages and configuration belong to this client repo; no `old-*` files or environment values are loaded.
+Notebook examples are interactive illustrations. Google login and account settings now connect to the Express backend. Real notebooks come in later migration stages. All packages and configuration belong to this client repo; no `old-*` files or environment values are loaded.
 
 Agents must stop any client server they start after testing, including on failure. Leave user-started servers alone.
+
+## Google login
+
+Set `NEXT_PUBLIC_AUTH_URL=http://localhost:5000` in the client-local `.env`. This is the browser-facing Express origin; no secrets belong in client configuration. Use `/login` for Google-only login, `/app` for the authenticated landing screen, and `/account` for profile/session settings. Both first-time and returning users choose Login with Google. No registration/password forms or mail service are present.
+
+Run the full local stack with root `make start`; it applies server migrations first. Production must provide NEXT_PUBLIC_AUTH_URL at build time and use HTTPS with frontend/API on the same site. The backend enforces cookie sessions independently of the client UI. Builds use Webpack, matching the Docker development setup and avoiding local Turbopack worker issues on Windows.

@@ -1,6 +1,59 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+.auth-screen { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #f1f5f9; }
+.auth-card { width: min(100%, 440px); padding: 40px; border: 1px solid #e2e8f0; border-radius: 20px; background: white; box-shadow: 0 16px 60px #1e293b08; }
+.auth-card .brand { display: inline-flex; margin-bottom: 40px; }
+.auth-card h1 { font-size: 30px; line-height: 1.2; margin: 12px 0; letter-spacing: -1px; }
+.auth-card p { color: #4b5e77; line-height: 1.6; }
+.google-login { width: 100%; margin-top: 24px; min-height: 48px; }
+.google-letter { font-weight: 800; font-size: 20px; margin-right: 8px; }
+.auth-back { display: block; margin-top: 18px; font-size: 14px; color: #4b5e77; }
+.auth-error { color: #9f1239 !important; font-size: 14px; margin: 10px 0; }
+.auth-error:empty, .account-message:empty { display: none; }
+.platform-shell { display: flex; min-height: 100dvh; }
+.platform-sidebar { width: 260px; flex-shrink: 0; padding: 30px 20px; display: flex; flex-direction: column; gap: 24px; background: #f1f5f9; border-right: 1px solid #e2e8f0; }
+.platform-sidebar nav { display: grid; gap: 8px; }
+.platform-sidebar nav a { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; }
+.platform-sidebar nav a:hover { background: #e2e8f0; }
+.sidebar-account { margin-top: auto; display: flex; align-items: center; gap: 10px; overflow-wrap: anywhere; }
+.sidebar-account strong, .sidebar-account small { display: block; }
+.sidebar-account small { color: #4b5e77; font-size: 12px; }
+.profile-initial { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: #e2e8f0; }
+.platform-content { flex: 1; min-width: 0; padding: 48px clamp(24px, 5vw, 80px); max-width: 1150px; }
+.platform-content h1 { font-size: clamp(28px, 4vw, 36px); font-weight: 600; letter-spacing: -1px; margin: 10px 0; }
+.section-description, .account-panel p, .account-panel small { color: #4b5e77; }
+.account-panel { margin-top: 24px; padding: 26px; border: 1px solid #e2e8f0; background: white; border-radius: 14px; }
+.account-panel h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.account-panel p { font-size: 14px; line-height: 1.6; }
+.account-panel form { display: grid; gap: 12px; max-width: 400px; margin-top: 22px; }
+.account-panel form button { justify-self: start; }
+.account-panel label { font-size: 14px; font-weight: 500; }
+.account-panel input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; }
+.profile-summary, .account-row { display: flex; gap: 16px; justify-content: space-between; align-items: center; }
+.profile-summary { justify-content: flex-start; }
+.profile-photo { border-radius: 50%; }
+.connected-badge { padding: 5px 10px; background: #d1fae5; color: #065f46; border-radius: 20px; font-size: 12px; }
+.account-note { margin-top: 16px; }
+.account-message { color: #065f46; margin-top: 16px; }
+.session-list { list-style: none; padding: 0; }
+.session-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0; border-top: 1px solid #e2e8f0; }
+.session-agent { overflow-wrap: anywhere; font-size: 12px !important; }
+.danger-panel { border-color: #fecdd3; }
+.danger-panel button { margin-top: 16px; }
+.empty-space { padding: 70px 24px; text-align: center; }
+.empty-space svg { margin: 0 auto 20px; color: #d86a5d; }
+@media (max-width: 700px) {
+  .platform-sidebar { width: 90px; padding: 24px 10px; }
+  .platform-sidebar .brand span, .sidebar-account { display: none; }
+  .platform-sidebar nav a, .platform-sidebar > button { flex-direction: column; text-align: center; font-size: 11px; padding: 10px 4px; white-space: normal; height: auto; }
+  .platform-sidebar nav { flex: 1; }
+  .platform-content { padding: 30px 16px; }
+  .account-panel { padding: 18px; }
+  .account-row { flex-wrap: wrap; }
+  .auth-card { padding: 28px; }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
