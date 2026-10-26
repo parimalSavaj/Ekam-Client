@@ -171,6 +171,7 @@ Where things live:
 - Landing page layout CSS: `src/styles/landing.css` (imported by `globals.css`, inside `@layer components`).
 - Shared primitives: `src/components/ui/*`. Cross-page composites: `src/components/brand.tsx`, `src/components/platform/*`, `src/components/auth/*`.
 - Page-specific components: `src/components/<area>/`.
+- Calls to the Express API: `src/lib/api-client.ts` (`apiRequest`, `ApiRequestError`, `errorMessage`) plus one `src/lib/<feature>-api.ts` per feature. They send the session cookie and reuse `NEXT_PUBLIC_AUTH_URL`; show `errorMessage(cause)` in an `Alert`. Do not add a data-fetching library without approval.
 - `cn()` from `@/lib/utils` merges class names.
 
 How to work:

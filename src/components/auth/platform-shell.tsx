@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, LogOut, Settings, type LucideIcon } from "lucide-react";
+import { BookOpen, Building, LogOut, Settings, type LucideIcon } from "lucide-react";
 import { AuthCard, AuthScreen } from "@/components/auth/auth-screen";
 import { Brand } from "@/components/brand";
 import { Alert } from "@/components/ui/alert";
@@ -64,6 +64,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
       <Brand href="/app" label="Ekam, your space" compact className="max-sm:mx-auto" />
       <nav aria-label="Main navigation" className="grid gap-2">
         <SidebarLink href="/app" icon={BookOpen} pathname={pathname}>Your space</SidebarLink>
+        <SidebarLink href="/workspaces" icon={Building} pathname={pathname}>Workspaces</SidebarLink>
         <SidebarLink href="/account" icon={Settings} pathname={pathname}>Account settings</SidebarLink>
       </nav>
       <div className="mt-auto flex items-center gap-3 max-sm:justify-center">
