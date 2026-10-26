@@ -1,33 +1,43 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2Icon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Slot } from "radix-ui"
 
+/*
+ * The only button styling in Ekam. Pick a variant and size; never restyle
+ * color, radius, height or hover behavior from the call site.
+ * Focus uses the global :focus-visible outline defined in globals.css.
+ */
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-center text-sm font-medium transition-colors select-none disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary-hover",
+        // The single most important action in a view.
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-active",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive-hover focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
+          "bg-destructive text-destructive-foreground hover:bg-destructive-hover active:bg-destructive-active",
+        // Standard secondary action. The 3:1 border keeps the control visible.
         outline:
-          "border bg-background shadow-xs hover:bg-secondary-hover hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border border-input bg-card text-foreground hover:bg-secondary active:bg-secondary-hover aria-pressed:border-primary-soft-border aria-pressed:bg-primary-soft aria-pressed:text-primary-soft-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary-hover",
+          "bg-secondary text-secondary-foreground hover:bg-secondary-hover active:bg-secondary-active aria-pressed:bg-primary-soft aria-pressed:text-primary-soft-foreground",
+        // Low-emphasis action: toolbars, navigation, dismissive actions.
         ghost:
-          "hover:bg-secondary-hover hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-foreground font-semibold underline decoration-primary underline-offset-4 hover:decoration-primary-hover",
+          "text-foreground hover:bg-secondary-hover active:bg-secondary-active aria-pressed:bg-primary-soft aria-pressed:text-primary-soft-foreground",
+        // Inline, text-led action that stays visibly interactive at rest.
+        link:
+          "text-foreground font-semibold underline decoration-primary decoration-1 underline-offset-4 hover:bg-primary-soft hover:text-primary-soft-foreground hover:decoration-primary-hover hover:decoration-2 active:bg-primary-soft-hover",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        sm: "min-h-9 px-3 py-1.5 has-[>svg]:px-2.5",
+        default: "min-h-10 px-4 py-2 has-[>svg]:px-3.5",
+        lg: "min-h-11 px-6 py-2 has-[>svg]:px-5",
+        "icon-sm": "size-9",
+        icon: "size-10",
+        "icon-lg": "size-11",
       },
     },
     defaultVariants: {
@@ -37,28 +47,51 @@ const buttonVariants = cva(
   }
 )
 
+type ButtonProps = React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean
+    /** Shows a spinner, disables the button and sets aria-busy. Ignored with asChild. */
+    loading?: boolean
+  }
+
 function Button({
   className,
   variant = "default",
   size = "default",
   asChild = false,
+  loading = false,
+  disabled,
+  children,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot.Root : "button"
+}: ButtonProps) {
+  const sharedProps = {
+    "data-slot": "button",
+    "data-variant": variant,
+    "data-size": size,
+    className: cn(buttonVariants({ variant, size, className })),
+  }
+
+  if (asChild) {
+    return (
+      <Slot.Root {...sharedProps} {...props}>
+        {children}
+      </Slot.Root>
+    )
+  }
 
   return (
-    <Comp
-      data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+    <button
+      {...sharedProps}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
-    />
+    >
+      {loading && (
+        <Loader2Icon className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+      )}
+      {children}
+    </button>
   )
 }
 
 export { Button, buttonVariants }
-

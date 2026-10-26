@@ -24,27 +24,32 @@ npm start
 
 The public landing page has its own header. Future platform screens use a full-height left sidebar without a top header; the root layout does not include the landing header.
 
-UI uses Tailwind CSS and locally owned shadcn Button, Card, Dialog, and Tabs components, customized with the agreed Ekam palette. Add future shadcn components using `npx shadcn@latest add <component>`.
+UI uses Tailwind CSS v4 and locally owned shadcn components (Button, Card, Dialog, Tabs, Input, Label, Badge, Alert), customized with the Ekam slate-and-coral palette. Add future shadcn components using `npx shadcn@latest add <component>`, then conform them to the design system.
+
+**Design rules for humans and AI agents live in [`AGENTS.md`](./AGENTS.md).** Read it before changing any UI: it documents the color tokens, typography, spacing, component variants, interaction states, accessibility requirements and the checklist for new features.
 
 ## Theme colors
 
-Edit the `:root` tokens in `src/app/globals.css` to change the theme. Tailwind/shadcn colors and the preview shadow derive from these tokens.
+Edit the `:root` tokens in `src/app/globals.css` to change the theme. Tailwind/shadcn colors and the shadows derive from these tokens. `AGENTS.md` holds the full table with contrast ratios.
 
 | Token | Color |
 | --- | --- |
 | `--background` | `#FAFAFA` |
 | `--secondary` | `#F1F5F9` |
+| `--secondary-hover` / `--secondary-active` | `#E2E8F0` / `#CBD5E1` |
 | `--card` | `#FFFFFF` |
 | `--muted` | `#F8FAFC` |
 | `--foreground` | `#1E293B` |
 | `--muted-foreground` | `#4B5E77` |
-| `--primary` | `#D86A5D` |
+| `--primary` | `#B94C41` |
 | `--primary-foreground` | `#FFFFFF` |
-| `--primary-hover` | `#BE5A4F` |
+| `--primary-hover` / `--primary-active` | `#9F4237` / `#8A382E` |
+| `--primary-soft` / `--primary-soft-hover` | `#FBEDEA` / `#F6E0DB` |
+| `--primary-soft-foreground` / `--primary-soft-border` | `#8A382E` / `#EFCBC5` |
+| `--brand` (decorative coral only) | `#D86A5D` |
 | `--border` | `#E2E8F0` |
-| `--input` | `#CBD5E1` |
-| `--ring` | `#D86A5D` |
-| `--secondary-hover` | `#E2E8F0` |
+| `--input` (form control boundary) | `#7C8CA3` |
+| `--ring` | `#B94C41` |
 
 Semantic colors are separate from the primary action color:
 
@@ -55,11 +60,11 @@ Semantic colors are separate from the primary action color:
 | `--warning` | `#D97706` | `--warning-bg: #FEF3C7` | `--warning-foreground: #92400E` | Confidence or rate-limit warnings |
 | `--info` | `#2563EB` | `--info-bg: #DBEAFE` | `--info-foreground: #1E40AF` | Informational and processing states |
 
-These tokens expose Tailwind utilities such as `text-error`, `bg-success`, `border-warning`, and `text-info`. `--destructive` references `--error`, so shadcn destructive buttons stay synchronized with the error palette; their hover color is derived from it. Reserve coral for primary actions. Semantic components should include a clear text label or icon, and text/background combinations need contrast checks before use; these base colors are not universally suitable for small text.
+These tokens expose Tailwind utilities such as `text-error`, `bg-success`, `border-warning`, and `text-info`. `--destructive` references `--error`, so shadcn destructive buttons stay synchronized with the error palette; their hover and pressed colors are derived from it. Reserve coral for primary actions and selected states. Semantic components should include a clear text label or icon (use the `Alert` and `Badge` components), and text/background combinations need contrast checks before use; these base colors are not universally suitable for small text.
 
-For banners, pair `bg-success-bg` with `text-success-foreground` (or the corresponding error, warning, or info tokens). These foregrounds are dark text colors for soft surfaces, not text colors for solid semantic buttons. Use `bg-muted` for code/citation surfaces, `border-input` for form controls, and `ring-ring` for focus indicators. The landing preview shows the input border token but remains an illustration; real chat controls will be added with platform features.
+For banners, pair `bg-success-bg` with `text-success-foreground` (or the corresponding error, warning, or info tokens). These foregrounds are dark text colors for soft surfaces, not text colors for solid semantic buttons. Use `bg-muted` for code/citation surfaces, `border-input` for form controls, and `ring-ring` for focus indicators.
 
-Primary buttons use the requested white-on-coral combination. Its normal-state contrast is approximately 3.42:1, below the 4.5:1 target for small text; it is not an accessibility-compliant small-text pairing. Small text links use the foreground color with a coral underline instead. Increasing font weight alone does not fix insufficient color contrast.
+Primary buttons are white on `#B94C41` (5.0:1, WCAG AA for normal text; hover 6.4:1, pressed 7.8:1). The earlier `#D86A5D` coral measured 3.42:1 with white and no longer carries text or controls. It remains as `--brand` for decoration only: the wordmark dot, large display text, and small illustrations. Form control borders use `--input` (3.4:1 on white) so fields remain visible; `--border` is for decorative hairlines.
 
 Notebook examples are interactive illustrations. Google login and account settings now connect to the Express backend. Real notebooks come in later migration stages. All packages and configuration belong to this client repo; no `old-*` files or environment values are loaded.
 

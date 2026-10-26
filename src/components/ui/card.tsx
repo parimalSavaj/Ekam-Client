@@ -1,14 +1,35 @@
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
+import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+/*
+ * Cards are flat: 1px border, white surface, 12px radius, no resting shadow.
+ * Padding comes from --card-padding (16px on phones, 24px from sm up) so header,
+ * content and footer always align. Use `interactive` only when the whole card is a link or button.
+ */
+const cardVariants = cva(
+  "flex flex-col gap-4 rounded-lg border bg-card py-(--card-padding) text-card-foreground [--card-padding:calc(var(--spacing)*4)] sm:[--card-padding:calc(var(--spacing)*6)]",
+  {
+    variants: {
+      interactive: {
+        true: "transition-[border-color,box-shadow] hover:border-input hover:shadow-raised focus-within:border-input",
+        false: "",
+      },
+    },
+    defaultVariants: { interactive: false },
+  }
+)
+
+function Card({
+  className,
+  interactive,
+  ...props
+}: React.ComponentProps<"div"> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
-      className={cn(
-        "flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm",
-        className
-      )}
+      className={cn(cardVariants({ interactive }), className)}
       {...props}
     />
   )
@@ -19,7 +40,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-(--card-padding) has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-(--card-padding)",
         className
       )}
       {...props}
@@ -27,11 +48,17 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/** Renders a div. Use `asChild` with an <h2> or <h3> when the title is a heading. */
+function CardTitle({
+  className,
+  asChild = false,
+  ...props
+}: React.ComponentProps<"div"> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot.Root : "div"
   return (
-    <div
+    <Comp
       data-slot="card-title"
-      className={cn("leading-none font-semibold", className)}
+      className={cn("text-lg leading-snug font-semibold", className)}
       {...props}
     />
   )
@@ -64,7 +91,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-6", className)}
+      className={cn("px-(--card-padding)", className)}
       {...props}
     />
   )
@@ -74,7 +101,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
+      className={cn("flex items-center px-(--card-padding) [.border-t]:pt-(--card-padding)", className)}
       {...props}
     />
   )
@@ -89,4 +116,3 @@ export {
   CardDescription,
   CardContent,
 }
-

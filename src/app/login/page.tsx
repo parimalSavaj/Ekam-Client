@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Layers } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { AuthCard, AuthScreen } from "@/components/auth/auth-screen";
+import { Brand } from "@/components/brand";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { authClient, loginWithGoogle } from "@/lib/auth-client";
 
@@ -23,20 +26,22 @@ export default function LoginPage() {
     } catch { setError("Unable to connect. Please try again."); setBusy(false); }
   }
 
-  return <main className="auth-screen">
-    <section className="auth-card">
-      <Link className="brand" href="/"><Layers size={28} aria-hidden="true" /><span>ekam<b>.</b></span></Link>
+  return <AuthScreen>
+    <AuthCard>
+      <Brand className="mb-10" />
       <p className="eyebrow">YOUR THINKING, CONNECTED</p>
-      <h1>A little space for your ideas.</h1>
-      <p>Log in to your Ekam account with Google.</p>
-      <Button className="google-login" onClick={login} disabled={busy || isPending || !!data}>
-        <span className="google-letter" aria-hidden="true">G</span>{busy ? "Connecting to Google..." : "Login with Google"}
+      <h1 className="mt-3 font-serif text-3xl leading-tight font-normal tracking-tight">A little space for your ideas.</h1>
+      <p className="mt-3 text-base text-muted-foreground">Log in to your Ekam account with Google.</p>
+      <Button size="lg" className="mt-6 w-full" onClick={login} loading={busy} disabled={isPending || !!data}>
+        <span className="text-lg font-extrabold" aria-hidden="true">G</span>{busy ? "Connecting to Google..." : "Login with Google"}
       </Button>
-      <p className="auth-error" role="alert">{error}</p>
+      {error && <Alert variant="error" className="mt-4">{error}</Alert>}
       <GoogleLoginError />
-      <Link className="auth-back" href="/">Back to home</Link>
-    </section>
-  </main>;
+      <Button variant="ghost" className="mt-4 self-start" asChild>
+        <Link href="/"><ArrowLeft aria-hidden="true" />Back to home</Link>
+      </Button>
+    </AuthCard>
+  </AuthScreen>;
 }
 
 function GoogleLoginError() {
@@ -48,5 +53,5 @@ function GoogleLoginError() {
       queueMicrotask(() => setFailed(true));
     }
   }, []);
-  return failed ? <p className="auth-error" role="alert">Google login was cancelled or could not finish. Please try again.</p> : null;
+  return failed ? <Alert variant="error" className="mt-4">Google login was cancelled or could not finish. Please try again.</Alert> : null;
 }
