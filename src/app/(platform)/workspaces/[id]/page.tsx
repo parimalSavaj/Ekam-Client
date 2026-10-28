@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { Library, Settings } from "lucide-react";
+import { KnowledgeBasesPanel } from "@/components/knowledge-bases/knowledge-bases-panel";
+import { Breadcrumbs } from "@/components/platform/breadcrumbs";
 import { PageHeader } from "@/components/platform/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -11,21 +12,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/components/workspaces/format-date";
 import { ApiRequestError, errorMessage } from "@/lib/api-client";
 import { deleteWorkspace, getWorkspace, renameWorkspace, type Workspace } from "@/lib/workspaces-api";
 
 type LoadState = "loading" | "ready" | "missing" | "error";
-
-function BackLink() {
-  return (
-    <div className="mb-4">
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/workspaces"><ArrowLeft aria-hidden="true" />All workspaces</Link>
-      </Button>
-    </div>
-  );
-}
 
 export default function WorkspacePage() {
   const router = useRouter();
@@ -96,7 +88,7 @@ export default function WorkspacePage() {
 
   if (state === "loading") {
     return <>
-      <BackLink />
+      <Breadcrumbs items={[{ label: "Workspaces", href: "/workspaces" }, { label: "Workspace" }]} />
       <PageHeader eyebrow="WORKSPACE" title="Workspace" />
       <p className="text-muted-foreground" aria-busy="true">Loading workspace...</p>
     </>;
@@ -104,14 +96,14 @@ export default function WorkspacePage() {
 
   if (state === "missing") {
     return <>
-      <BackLink />
+      <Breadcrumbs items={[{ label: "Workspaces", href: "/workspaces" }, { label: "Not found" }]} />
       <PageHeader title="Workspace not found" description="It may have been deleted, or it may belong to another account." />
     </>;
   }
 
   if (state === "error" || !workspace) {
     return <>
-      <BackLink />
+      <Breadcrumbs items={[{ label: "Workspaces", href: "/workspaces" }, { label: "Workspace" }]} />
       <PageHeader eyebrow="WORKSPACE" title="Workspace" />
       <div className="grid justify-items-start gap-3">
         <Alert variant="error">{loadError || "Something went wrong. Please try again."}</Alert>
@@ -120,46 +112,62 @@ export default function WorkspacePage() {
     </>;
   }
 
-  return <div className="max-w-3xl">
-    <BackLink />
+  return <div>
+    <Breadcrumbs items={[{ label: "Workspaces", href: "/workspaces" }, { label: workspace.name }]} />
     <PageHeader
       eyebrow="WORKSPACE"
       title={<span className="wrap-anywhere">{workspace.name}</span>}
       description={`Created ${formatDate(workspace.createdAt)}`}
     />
-    {(message || error) && <div className="mb-6 grid gap-3">
-      {message && <Alert variant="success">{message}</Alert>}
-      {error && <Alert variant="error">{error}</Alert>}
-    </div>}
-    <div className="grid grid-cols-1 gap-6">
-      <Card>
-        <CardHeader><CardTitle asChild><h2>Workspace details</h2></CardTitle></CardHeader>
-        <CardContent>
-          <form className="grid max-w-sm gap-3" onSubmit={event => void rename(event)}>
-            <Label htmlFor="workspace-name">Workspace name</Label>
-            <Input
-              id="workspace-name"
-              autoComplete="off"
-              maxLength={100}
-              required
-              value={name ?? workspace.name}
-              onChange={event => setName(event.target.value)}
-            />
-            <Button type="submit" className="justify-self-start" disabled={pending === "delete"} loading={pending === "rename"}>Save changes</Button>
-          </form>
-        </CardContent>
-      </Card>
+    {/* Tabs keep one primary action per view: "Create knowledge base" or "Save changes", never both. */}
+    <Tabs defaultValue="knowledge-bases" className="gap-6">
+      {/* No overflow clipping here: it would cut off the focus ring of the tabs. Both tabs fit at 320px. */}
+      <TabsList variant="line" aria-label="Workspace sections">
+        <TabsTrigger value="knowledge-bases"><Library aria-hidden="true" />Knowledge bases</TabsTrigger>
+        <TabsTrigger value="settings"><Settings aria-hidden="true" />Settings</TabsTrigger>
+      </TabsList>
 
-      <Card className="border-error/30">
-        <CardHeader>
-          <CardTitle asChild><h2>Delete workspace</h2></CardTitle>
-          <CardDescription>Permanently remove this workspace. This cannot be undone.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="destructive" disabled={pending !== ""} onClick={() => { setDeleteError(""); setConfirmDelete(true); }}>Delete workspace</Button>
-        </CardContent>
-      </Card>
-    </div>
+      {/* The panels hold their own buttons and links, so the panel itself is not a tab stop and draws no ring. */}
+      <TabsContent value="knowledge-bases" tabIndex={-1} className="focus-visible:outline-none">
+        <KnowledgeBasesPanel workspaceId={workspace.id} />
+      </TabsContent>
+
+      <TabsContent value="settings" tabIndex={-1} className="max-w-3xl focus-visible:outline-none">
+        {(message || error) && <div className="mb-6 grid gap-3">
+          {message && <Alert variant="success">{message}</Alert>}
+          {error && <Alert variant="error">{error}</Alert>}
+        </div>}
+        <div className="grid grid-cols-1 gap-6">
+          <Card>
+            <CardHeader><CardTitle asChild><h2>Workspace details</h2></CardTitle></CardHeader>
+            <CardContent>
+              <form className="grid max-w-sm gap-3" onSubmit={event => void rename(event)}>
+                <Label htmlFor="workspace-name">Workspace name</Label>
+                <Input
+                  id="workspace-name"
+                  autoComplete="off"
+                  maxLength={100}
+                  required
+                  value={name ?? workspace.name}
+                  onChange={event => setName(event.target.value)}
+                />
+                <Button type="submit" className="justify-self-start" disabled={pending === "delete"} loading={pending === "rename"}>Save changes</Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card className="border-error/30">
+            <CardHeader>
+              <CardTitle asChild><h2>Delete workspace</h2></CardTitle>
+              <CardDescription>Permanently remove this workspace, including its knowledge bases. This cannot be undone.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="destructive" disabled={pending !== ""} onClick={() => { setDeleteError(""); setConfirmDelete(true); }}>Delete workspace</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </TabsContent>
+    </Tabs>
 
     <Dialog open={confirmDelete} onOpenChange={open => { if (pending !== "delete") setConfirmDelete(open); }}>
       <DialogContent>

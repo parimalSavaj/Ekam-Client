@@ -26,7 +26,7 @@ function Tabs({
 
 /*
  * default: segmented control on a recessed track (settings, small switches).
- * line:    underlined tabs for page sections.
+ * line:    tabs for page sections; the selected tab has a soft coral fill and a primary underline.
  * pill:    outlined chips with a filled selected state (content switchers).
  */
 const tabsListVariants = cva(
@@ -74,7 +74,7 @@ function TabsTrigger({
         // default: selected segment lifts to the white card surface
         "group-data-[variant=default]/tabs-list:h-8 group-data-[variant=default]/tabs-list:rounded-md group-data-[variant=default]/tabs-list:data-[state=active]:border-border group-data-[variant=default]/tabs-list:data-[state=active]:bg-card group-data-[variant=default]/tabs-list:data-[state=active]:text-foreground",
         // line: selected tab gets a primary underline
-        "group-data-[variant=line]/tabs-list:h-10 group-data-[variant=line]/tabs-list:rounded-md group-data-[variant=line]/tabs-list:hover:bg-secondary-hover group-data-[variant=line]/tabs-list:data-[state=active]:text-foreground group-data-[variant=line]/tabs-list:after:absolute group-data-[variant=line]/tabs-list:after:inset-x-3 group-data-[variant=line]/tabs-list:after:bottom-0 group-data-[variant=line]/tabs-list:after:h-0.5 group-data-[variant=line]/tabs-list:after:bg-primary group-data-[variant=line]/tabs-list:after:opacity-0 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
+        "group-data-[variant=line]/tabs-list:h-10 group-data-[variant=line]/tabs-list:rounded-md group-data-[variant=line]/tabs-list:hover:bg-secondary-hover group-data-[variant=line]/tabs-list:focus-visible:bg-secondary-hover group-data-[variant=line]/tabs-list:focus-visible:outline-none group-data-[variant=line]/tabs-list:data-[state=active]:bg-primary-soft group-data-[variant=line]/tabs-list:data-[state=active]:text-primary-soft-foreground group-data-[variant=line]/tabs-list:data-[state=active]:hover:bg-primary-soft-hover group-data-[variant=line]/tabs-list:data-[state=active]:focus-visible:bg-primary-soft-hover group-data-[variant=line]/tabs-list:after:absolute group-data-[variant=line]/tabs-list:after:inset-x-3 group-data-[variant=line]/tabs-list:after:bottom-0 group-data-[variant=line]/tabs-list:after:h-0.5 group-data-[variant=line]/tabs-list:after:bg-primary group-data-[variant=line]/tabs-list:after:opacity-0 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
         // pill: outlined chip, selected fills with the foreground color
         "group-data-[variant=pill]/tabs-list:h-10 group-data-[variant=pill]/tabs-list:rounded-full group-data-[variant=pill]/tabs-list:border-border group-data-[variant=pill]/tabs-list:px-4 group-data-[variant=pill]/tabs-list:hover:border-input group-data-[variant=pill]/tabs-list:hover:bg-secondary-hover group-data-[variant=pill]/tabs-list:active:bg-secondary-active group-data-[variant=pill]/tabs-list:data-[state=active]:border-foreground group-data-[variant=pill]/tabs-list:data-[state=active]:bg-foreground group-data-[variant=pill]/tabs-list:data-[state=active]:text-background group-data-[variant=pill]/tabs-list:data-[state=active]:hover:border-foreground group-data-[variant=pill]/tabs-list:data-[state=active]:hover:bg-foreground/90 group-data-[variant=pill]/tabs-list:data-[state=active]:hover:text-background group-data-[variant=pill]/tabs-list:data-[state=active]:active:bg-foreground/80",
         className
