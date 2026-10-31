@@ -1,23 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Library, Settings } from "lucide-react";
-import { KnowledgeBasesPanel } from "@/components/knowledge-bases/knowledge-bases-panel";
+import { Library, Pencil, Plus, Trash } from "lucide-react";
+import { CreateKnowledgeBaseDialog } from "@/components/knowledge-bases/create-knowledge-base-dialog";
+import { KnowledgeBaseCard } from "@/components/knowledge-bases/knowledge-base-card";
+import { ActionMenu } from "@/components/platform/action-menu";
 import { Breadcrumbs } from "@/components/platform/breadcrumbs";
+import { ConfirmDeleteDialog } from "@/components/platform/confirm-delete-dialog";
+import { DotList } from "@/components/platform/dot-list";
+import { EmptyState } from "@/components/platform/empty-state";
+import { LoadError } from "@/components/platform/load-error";
+import { CardGridPlaceholder, HeaderPlaceholder } from "@/components/platform/loading-placeholders";
 import { PageHeader } from "@/components/platform/page-header";
+import { SectionHeader } from "@/components/platform/section-header";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/components/workspaces/format-date";
+import { RenameWorkspaceDialog } from "@/components/workspaces/rename-workspace-dialog";
 import { ApiRequestError, errorMessage } from "@/lib/api-client";
-import { deleteWorkspace, getWorkspace, renameWorkspace, type Workspace } from "@/lib/workspaces-api";
+import { listKnowledgeBases, type KnowledgeBase } from "@/lib/knowledge-bases-api";
+import { deleteWorkspace, getWorkspace, type Workspace } from "@/lib/workspaces-api";
 
 type LoadState = "loading" | "ready" | "missing" | "error";
+type OpenDialog = "" | "create" | "rename" | "delete";
+
+const TRAIL_ROOT = { label: "Workspaces", href: "/workspaces" };
 
 export default function WorkspacePage() {
   const router = useRouter();
@@ -25,15 +33,12 @@ export default function WorkspacePage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [state, setState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
-  const [name, setName] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  // Which action is running, so only that button shows a spinner while the rest stay disabled.
-  const [pending, setPending] = useState<"" | "rename" | "delete">("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[] | null>(null);
+  const [listError, setListError] = useState("");
+  const [dialog, setDialog] = useState<OpenDialog>("");
+  const [notice, setNotice] = useState("");
 
-  const load = useCallback(async () => {
+  const loadWorkspace = useCallback(async () => {
     try {
       setWorkspace(await getWorkspace(id));
       setState("ready");
@@ -48,139 +53,122 @@ export default function WorkspacePage() {
     }
   }, [id]);
 
-  useEffect(() => {
-    queueMicrotask(() => { void load(); });
-  }, [load]);
-
-  async function rename(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!workspace) return;
-    const trimmed = (name ?? workspace.name).trim();
-    if (!trimmed) { setError("Enter a workspace name."); setMessage(""); return; }
-    setPending("rename");
-    setError("");
-    setMessage("");
+  const loadKnowledgeBases = useCallback(async () => {
     try {
-      setWorkspace(await renameWorkspace(workspace.id, trimmed));
-      setName(null);
-      setMessage("Workspace renamed.");
+      setKnowledgeBases(await listKnowledgeBases(id));
     } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setPending("");
+      setListError(errorMessage(cause));
     }
+  }, [id]);
+
+  useEffect(() => {
+    queueMicrotask(() => { void loadWorkspace(); void loadKnowledgeBases(); });
+  }, [loadWorkspace, loadKnowledgeBases]);
+
+  function open(next: OpenDialog) {
+    setNotice("");
+    setDialog(next);
   }
 
   async function remove() {
-    if (!workspace) return;
-    setPending("delete");
-    setDeleteError("");
     try {
-      await deleteWorkspace(workspace.id);
-      router.replace("/workspaces");
+      await deleteWorkspace(id);
     } catch (cause) {
       // Already gone (for example deleted in another tab): the goal is reached.
-      if (cause instanceof ApiRequestError && cause.status === 404) { router.replace("/workspaces"); return; }
-      setDeleteError(errorMessage(cause));
-      setPending("");
+      if (!(cause instanceof ApiRequestError && cause.status === 404)) throw cause;
     }
+    router.replace("/workspaces");
   }
 
   if (state === "loading") {
     return <>
-      <Breadcrumbs items={[{ label: "Workspaces", href: "/workspaces" }, { label: "Workspace" }]} />
-      <PageHeader eyebrow="WORKSPACE" title="Workspace" />
-      <p className="text-muted-foreground" aria-busy="true">Loading workspace...</p>
+      <Breadcrumbs items={[TRAIL_ROOT, { label: "Workspace" }]} />
+      <HeaderPlaceholder label="Loading workspace..." />
+      <CardGridPlaceholder label="Loading knowledge bases..." />
     </>;
   }
 
   if (state === "missing") {
     return <>
-      <Breadcrumbs items={[{ label: "Workspaces", href: "/workspaces" }, { label: "Not found" }]} />
+      <Breadcrumbs items={[TRAIL_ROOT, { label: "Not found" }]} />
       <PageHeader title="Workspace not found" description="It may have been deleted, or it may belong to another account." />
     </>;
   }
 
   if (state === "error" || !workspace) {
     return <>
-      <Breadcrumbs items={[{ label: "Workspaces", href: "/workspaces" }, { label: "Workspace" }]} />
+      <Breadcrumbs items={[TRAIL_ROOT, { label: "Workspace" }]} />
       <PageHeader eyebrow="WORKSPACE" title="Workspace" />
-      <div className="grid justify-items-start gap-3">
-        <Alert variant="error">{loadError || "Something went wrong. Please try again."}</Alert>
-        <Button variant="outline" onClick={() => { setState("loading"); void load(); }}>Try again</Button>
-      </div>
+      <LoadError message={loadError} onRetry={() => { setState("loading"); void loadWorkspace(); }} />
     </>;
   }
 
-  return <div>
-    <Breadcrumbs items={[{ label: "Workspaces", href: "/workspaces" }, { label: workspace.name }]} />
+  const count = knowledgeBases?.length;
+  const meta = <DotList items={[
+    count !== undefined && (count === 0 ? "No knowledge bases yet" : count === 1 ? "1 knowledge base" : `${count} knowledge bases`),
+    `Created ${formatDate(workspace.createdAt)}`,
+  ]} />;
+
+  return <>
+    <Breadcrumbs items={[TRAIL_ROOT, { label: workspace.name }]} />
     <PageHeader
       eyebrow="WORKSPACE"
       title={<span className="wrap-anywhere">{workspace.name}</span>}
-      description={`Created ${formatDate(workspace.createdAt)}`}
+      meta={meta}
+      actions={<>
+        <Button className="max-sm:flex-1" onClick={() => open("create")}><Plus aria-hidden="true" />New knowledge base</Button>
+        <ActionMenu label="Workspace actions" entries={[
+          { kind: "action", label: "Rename workspace", icon: Pencil, onSelect: () => open("rename") },
+          { kind: "separator" },
+          { kind: "action", label: "Delete workspace", icon: Trash, destructive: true, onSelect: () => open("delete") },
+        ]} />
+      </>}
     />
-    {/* Tabs keep one primary action per view: "Create knowledge base" or "Save changes", never both. */}
-    <Tabs defaultValue="knowledge-bases" className="gap-6">
-      {/* No overflow clipping here: it would cut off the focus ring of the tabs. Both tabs fit at 320px. */}
-      <TabsList variant="line" aria-label="Workspace sections">
-        <TabsTrigger value="knowledge-bases"><Library aria-hidden="true" />Knowledge bases</TabsTrigger>
-        <TabsTrigger value="settings"><Settings aria-hidden="true" />Settings</TabsTrigger>
-      </TabsList>
 
-      {/* The panels hold their own buttons and links, so the panel itself is not a tab stop and draws no ring. */}
-      <TabsContent value="knowledge-bases" tabIndex={-1} className="focus-visible:outline-none">
-        <KnowledgeBasesPanel workspaceId={workspace.id} />
-      </TabsContent>
+    {notice && <Alert variant="success" className="mb-6">{notice}</Alert>}
 
-      <TabsContent value="settings" tabIndex={-1} className="max-w-3xl focus-visible:outline-none">
-        {(message || error) && <div className="mb-6 grid gap-3">
-          {message && <Alert variant="success">{message}</Alert>}
-          {error && <Alert variant="error">{error}</Alert>}
-        </div>}
-        <div className="grid grid-cols-1 gap-6">
-          <Card>
-            <CardHeader><CardTitle asChild><h2>Workspace details</h2></CardTitle></CardHeader>
-            <CardContent>
-              <form className="grid max-w-sm gap-3" onSubmit={event => void rename(event)}>
-                <Label htmlFor="workspace-name">Workspace name</Label>
-                <Input
-                  id="workspace-name"
-                  autoComplete="off"
-                  maxLength={100}
-                  required
-                  value={name ?? workspace.name}
-                  onChange={event => setName(event.target.value)}
-                />
-                <Button type="submit" className="justify-self-start" disabled={pending === "delete"} loading={pending === "rename"}>Save changes</Button>
-              </form>
-            </CardContent>
-          </Card>
+    <section aria-labelledby="knowledge-bases-heading">
+      <SectionHeader id="knowledge-bases-heading" title="Knowledge bases" count={count || undefined} />
+      {listError && knowledgeBases === null ? (
+        <LoadError message={listError} onRetry={() => { setListError(""); void loadKnowledgeBases(); }} />
+      ) : knowledgeBases === null ? (
+        <CardGridPlaceholder label="Loading knowledge bases..." />
+      ) : knowledgeBases.length === 0 ? (
+        <EmptyState
+          icon={Library}
+          headingLevel="h3"
+          title="Create your first knowledge base"
+          description="A knowledge base keeps the sources on one subject together, such as a product handbook or a support playbook, so you can ask questions about just that."
+          actions={<Button variant="outline" onClick={() => open("create")}><Plus aria-hidden="true" />Create knowledge base</Button>}
+        />
+      ) : (
+        <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {knowledgeBases.map(knowledgeBase => <li key={knowledgeBase.id} className="min-w-0">
+            <KnowledgeBaseCard knowledgeBase={knowledgeBase} />
+          </li>)}
+        </ul>
+      )}
+    </section>
 
-          <Card className="border-error/30">
-            <CardHeader>
-              <CardTitle asChild><h2>Delete workspace</h2></CardTitle>
-              <CardDescription>Permanently remove this workspace, including its knowledge bases. This cannot be undone.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="destructive" disabled={pending !== ""} onClick={() => { setDeleteError(""); setConfirmDelete(true); }}>Delete workspace</Button>
-            </CardContent>
-          </Card>
-        </div>
-      </TabsContent>
-    </Tabs>
-
-    <Dialog open={confirmDelete} onOpenChange={open => { if (pending !== "delete") setConfirmDelete(open); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete this workspace?</DialogTitle>
-          <DialogDescription>This permanently deletes the workspace &ldquo;{workspace.name}&rdquo;. This cannot be undone.</DialogDescription>
-        </DialogHeader>
-        {deleteError && <Alert variant="error">{deleteError}</Alert>}
-        <DialogFooter>
-          <Button variant="outline" disabled={pending === "delete"} onClick={() => setConfirmDelete(false)}>Keep workspace</Button>
-          <Button variant="destructive" loading={pending === "delete"} onClick={() => void remove()}>Delete permanently</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  </div>;
+    <CreateKnowledgeBaseDialog
+      workspaceId={workspace.id}
+      open={dialog === "create"}
+      onOpenChange={next => setDialog(next ? "create" : "")}
+      onCreated={knowledgeBase => router.push(`/workspaces/${workspace.id}/knowledge-bases/${knowledgeBase.id}`)}
+    />
+    <RenameWorkspaceDialog
+      workspace={workspace}
+      open={dialog === "rename"}
+      onOpenChange={next => setDialog(next ? "rename" : "")}
+      onRenamed={renamed => { setWorkspace(renamed); setDialog(""); setNotice("Workspace renamed."); }}
+    />
+    <ConfirmDeleteDialog
+      open={dialog === "delete"}
+      onOpenChange={next => setDialog(next ? "delete" : "")}
+      title="Delete this workspace?"
+      description={<>This permanently deletes the workspace &ldquo;{workspace.name}&rdquo;, its knowledge bases and their sources. This cannot be undone.</>}
+      keepLabel="Keep workspace"
+      onConfirm={remove}
+    />
+  </>;
 }

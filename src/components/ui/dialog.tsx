@@ -47,18 +47,43 @@ function DialogOverlay({
   )
 }
 
+/*
+ * Radix returns focus only to a <DialogTrigger>. Ekam opens dialogs from state (menu items,
+ * buttons in other components), so the content remembers what had focus when it opened and
+ * returns focus there on close. A caller's onCloseAutoFocus runs first and may take over by
+ * calling event.preventDefault().
+ */
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const returnFocusTo = React.useRef<HTMLElement | null>(null)
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
+        onOpenAutoFocus={(event) => {
+          // Runs before focus moves into the dialog, so this is still the element that opened it.
+          // A second call with focus already inside (React's development double mount) is ignored.
+          const active = document.activeElement
+          const inside = event.currentTarget instanceof Node && event.currentTarget.contains(active)
+          if (active instanceof HTMLElement && !inside) returnFocusTo.current = active
+          onOpenAutoFocus?.(event)
+        }}
+        onCloseAutoFocus={(event) => {
+          onCloseAutoFocus?.(event)
+          const target = returnFocusTo.current
+          returnFocusTo.current = null
+          if (event.defaultPrevented || !target?.isConnected || target === document.body) return
+          event.preventDefault()
+          target.focus()
+        }}
         data-slot="dialog-content"
         className={cn(
           "fixed top-[50%] left-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-lg border bg-card p-6 shadow-overlay duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",

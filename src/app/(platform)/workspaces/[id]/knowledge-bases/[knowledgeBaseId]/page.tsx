@@ -1,22 +1,37 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { CloudUpload, Globe, Pencil, Trash, Upload } from "lucide-react";
+import { EditKnowledgeBaseDialog } from "@/components/knowledge-bases/edit-knowledge-base-dialog";
+import { ActionMenu } from "@/components/platform/action-menu";
 import { Breadcrumbs } from "@/components/platform/breadcrumbs";
+import { ConfirmDeleteDialog } from "@/components/platform/confirm-delete-dialog";
+import { DotList } from "@/components/platform/dot-list";
+import { EmptyState } from "@/components/platform/empty-state";
+import { LoadError } from "@/components/platform/load-error";
+import { HeaderPlaceholder, RowListPlaceholder } from "@/components/platform/loading-placeholders";
 import { PageHeader } from "@/components/platform/page-header";
+import { SectionHeader } from "@/components/platform/section-header";
+import { AddWebPageDialog } from "@/components/sources/add-web-page-dialog";
+import { DropOverlay } from "@/components/sources/drop-overlay";
+import { ACCEPT_ATTRIBUTE, FILE_RULES_TEXT, sourceTitle, summarizeSources } from "@/components/sources/source-format";
+import { SourceList } from "@/components/sources/source-list";
+import { UploadTray } from "@/components/sources/upload-tray";
+import { useFileDrop } from "@/components/sources/use-file-drop";
+import { useUploadQueue } from "@/components/sources/use-upload-queue";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/components/workspaces/format-date";
 import { ApiRequestError, errorMessage } from "@/lib/api-client";
-import { deleteKnowledgeBase, getKnowledgeBase, updateKnowledgeBase, type KnowledgeBase } from "@/lib/knowledge-bases-api";
+import { deleteKnowledgeBase, getKnowledgeBase, type KnowledgeBase } from "@/lib/knowledge-bases-api";
+import { deleteSource, listSources, uploadFileSource, type Source } from "@/lib/sources-api";
 import { getWorkspace } from "@/lib/workspaces-api";
 
 type LoadState = "loading" | "ready" | "missing" | "error";
+type OpenDialog = "" | "web-page" | "edit" | "delete-knowledge-base" | "delete-source";
+
+const newestFirst = (a: Source, b: Source) => b.createdAt.localeCompare(a.createdAt);
 
 export default function KnowledgeBasePage() {
   const router = useRouter();
@@ -25,17 +40,15 @@ export default function KnowledgeBasePage() {
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState("");
-  // null means "not edited yet": the field shows the saved value.
-  const [name, setName] = useState<string | null>(null);
-  const [description, setDescription] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  // Which action is running, so only that button shows a spinner while the rest stay disabled.
-  const [pending, setPending] = useState<"" | "save" | "delete">("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
+  const [sources, setSources] = useState<Source[] | null>(null);
+  const [sourcesError, setSourcesError] = useState("");
+  const [dialog, setDialog] = useState<OpenDialog>("");
+  // Kept after the dialog closes so its text does not change during the closing animation.
+  const [sourceToDelete, setSourceToDelete] = useState<Source | null>(null);
+  const [notice, setNotice] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
+  const loadKnowledgeBase = useCallback(async () => {
     try {
       setKnowledgeBase(await getKnowledgeBase(workspaceId, knowledgeBaseId));
       setState("ready");
@@ -50,9 +63,17 @@ export default function KnowledgeBasePage() {
     }
   }, [workspaceId, knowledgeBaseId]);
 
+  const loadSources = useCallback(async () => {
+    try {
+      setSources((await listSources(workspaceId, knowledgeBaseId)).sort(newestFirst));
+    } catch (cause) {
+      setSourcesError(errorMessage(cause));
+    }
+  }, [workspaceId, knowledgeBaseId]);
+
   useEffect(() => {
-    queueMicrotask(() => { void load(); });
-  }, [load]);
+    queueMicrotask(() => { void loadKnowledgeBase(); void loadSources(); });
+  }, [loadKnowledgeBase, loadSources]);
 
   // Only used to label the middle crumb. If it fails the crumb says "Workspace" and the page still works.
   useEffect(() => {
@@ -63,56 +84,68 @@ export default function KnowledgeBasePage() {
     return () => { cancelled = true; };
   }, [workspaceId]);
 
+  const upload = useCallback(
+    (file: File) => uploadFileSource(workspaceId, knowledgeBaseId, file),
+    [workspaceId, knowledgeBaseId],
+  );
+  const uploads = useUploadQueue({
+    upload,
+    // Without a loaded list there is nothing to add to; "Try again" loads the full list.
+    onUploaded: source => setSources(current => (current ? [source, ...current] : current)),
+    onFinished: added => { if (added > 0) setNotice(added === 1 ? "1 file added." : `${added} files added.`); },
+  });
+
+  function addFiles(files: File[]) {
+    setNotice("");
+    uploads.enqueue(files);
+  }
+
+  const dragging = useFileDrop(addFiles, state === "ready" && dialog === "");
+
+  function open(next: OpenDialog) {
+    setNotice("");
+    setDialog(next);
+  }
+
+  function chooseFiles() {
+    setNotice("");
+    fileInput.current?.click();
+  }
+
+  async function removeKnowledgeBase() {
+    try {
+      await deleteKnowledgeBase(workspaceId, knowledgeBaseId);
+    } catch (cause) {
+      // Already gone (for example deleted in another tab): the goal is reached.
+      if (!(cause instanceof ApiRequestError && cause.status === 404)) throw cause;
+    }
+    router.replace(`/workspaces/${workspaceId}`);
+  }
+
+  async function removeSource() {
+    if (!sourceToDelete) return;
+    try {
+      await deleteSource(workspaceId, knowledgeBaseId, sourceToDelete.id);
+    } catch (cause) {
+      if (!(cause instanceof ApiRequestError && cause.status === 404)) throw cause;
+    }
+    const removedId = sourceToDelete.id;
+    setSources(current => current?.filter(source => source.id !== removedId) ?? current);
+    setNotice("Source deleted.");
+  }
+
   const trail = (current: string) => [
     { label: "Workspaces", href: "/workspaces" },
     { label: workspaceName ?? "Workspace", href: `/workspaces/${workspaceId}` },
     { label: current },
   ];
 
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!knowledgeBase) return;
-    const nextName = (name ?? knowledgeBase.name).trim();
-    if (!nextName) { setError("Enter a knowledge base name."); setMessage(""); return; }
-    setPending("save");
-    setError("");
-    setMessage("");
-    try {
-      setKnowledgeBase(await updateKnowledgeBase(workspaceId, knowledgeBase.id, {
-        name: nextName,
-        description: description ?? knowledgeBase.description ?? "",
-      }));
-      setName(null);
-      setDescription(null);
-      setMessage("Knowledge base saved.");
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setPending("");
-    }
-  }
-
-  async function remove() {
-    if (!knowledgeBase) return;
-    setPending("delete");
-    setDeleteError("");
-    try {
-      await deleteKnowledgeBase(workspaceId, knowledgeBase.id);
-      router.replace(`/workspaces/${workspaceId}`);
-    } catch (cause) {
-      // Already gone (for example deleted in another tab): the goal is reached.
-      if (cause instanceof ApiRequestError && cause.status === 404) { router.replace(`/workspaces/${workspaceId}`); return; }
-      setDeleteError(errorMessage(cause));
-      setPending("");
-    }
-  }
-
   if (state === "loading") {
-    return <>
+    return <div className="max-w-4xl">
       <Breadcrumbs items={trail("Knowledge base")} />
-      <PageHeader eyebrow="KNOWLEDGE BASE" title="Knowledge base" />
-      <p className="text-muted-foreground" aria-busy="true">Loading knowledge base...</p>
-    </>;
+      <HeaderPlaceholder label="Loading knowledge base..." />
+      <RowListPlaceholder label="Loading sources..." />
+    </div>;
   }
 
   if (state === "missing") {
@@ -126,81 +159,122 @@ export default function KnowledgeBasePage() {
     return <>
       <Breadcrumbs items={trail("Knowledge base")} />
       <PageHeader eyebrow="KNOWLEDGE BASE" title="Knowledge base" />
-      <div className="grid justify-items-start gap-3">
-        <Alert variant="error">{loadError || "Something went wrong. Please try again."}</Alert>
-        <Button variant="outline" onClick={() => { setState("loading"); void load(); }}>Try again</Button>
-      </div>
+      <LoadError message={loadError} onRetry={() => { setState("loading"); void loadKnowledgeBase(); }} />
     </>;
   }
 
-  const descriptionValue = description ?? knowledgeBase.description ?? "";
+  const meta = <DotList items={[...(sources ? summarizeSources(sources) : []), `Created ${formatDate(knowledgeBase.createdAt)}`]} />;
 
-  return <div className="max-w-3xl">
+  return <div className="max-w-4xl">
     <Breadcrumbs items={trail(knowledgeBase.name)} />
     <PageHeader
       eyebrow="KNOWLEDGE BASE"
       title={<span className="wrap-anywhere">{knowledgeBase.name}</span>}
-      description={`Created ${formatDate(knowledgeBase.createdAt)}`}
+      description={knowledgeBase.description ?? undefined}
+      meta={meta}
+      actions={<>
+        {/* On phones this moves into the menu, so the header keeps one row: Upload files and the menu. */}
+        <Button variant="outline" className="max-sm:hidden" onClick={() => open("web-page")}><Globe aria-hidden="true" />Add web page</Button>
+        <Button className="max-sm:flex-1" onClick={chooseFiles}><Upload aria-hidden="true" />Upload files</Button>
+        <ActionMenu label="Knowledge base actions" entries={[
+          { kind: "action", label: "Add web page", icon: Globe, className: "sm:hidden", onSelect: () => open("web-page") },
+          { kind: "action", label: "Edit name and description", icon: Pencil, onSelect: () => open("edit") },
+          { kind: "separator" },
+          { kind: "action", label: "Delete knowledge base", icon: Trash, destructive: true, onSelect: () => open("delete-knowledge-base") },
+        ]} />
+      </>}
     />
-    {(message || error) && <div className="mb-6 grid gap-3">
-      {message && <Alert variant="success">{message}</Alert>}
-      {error && <Alert variant="error">{error}</Alert>}
-    </div>}
-    <div className="grid grid-cols-1 gap-6">
-      <Card>
-        <CardHeader><CardTitle asChild><h2>Knowledge base details</h2></CardTitle></CardHeader>
-        <CardContent>
-          <form className="grid max-w-xl gap-4" onSubmit={event => void save(event)}>
-            <div className="grid gap-2">
-              <Label htmlFor="knowledge-base-name">Knowledge base name</Label>
-              <Input
-                id="knowledge-base-name"
-                autoComplete="off"
-                maxLength={100}
-                required
-                value={name ?? knowledgeBase.name}
-                onChange={event => setName(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="knowledge-base-description">Description (optional)</Label>
-              <Textarea
-                id="knowledge-base-description"
-                autoComplete="off"
-                maxLength={500}
-                value={descriptionValue}
-                onChange={event => setDescription(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">{descriptionValue.length} of 500 characters</p>
-            </div>
-            <Button type="submit" className="justify-self-start" disabled={pending === "delete"} loading={pending === "save"}>Save changes</Button>
-          </form>
-        </CardContent>
-      </Card>
 
-      <Card className="border-error/30">
-        <CardHeader>
-          <CardTitle asChild><h2>Delete knowledge base</h2></CardTitle>
-          <CardDescription>Permanently remove this knowledge base. This cannot be undone.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="destructive" disabled={pending !== ""} onClick={() => { setDeleteError(""); setConfirmDelete(true); }}>Delete knowledge base</Button>
-        </CardContent>
-      </Card>
-    </div>
+    {/* Opened by the Upload files buttons; the visible controls are those buttons. */}
+    <input
+      ref={fileInput}
+      type="file"
+      multiple
+      accept={ACCEPT_ATTRIBUTE}
+      hidden
+      tabIndex={-1}
+      onChange={event => {
+        const files = Array.from(event.target.files ?? []);
+        // Cleared so choosing the same file again still counts as a change.
+        event.target.value = "";
+        addFiles(files);
+      }}
+    />
 
-    <Dialog open={confirmDelete} onOpenChange={open => { if (pending !== "delete") setConfirmDelete(open); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete this knowledge base?</DialogTitle>
-          <DialogDescription>This permanently deletes the knowledge base &ldquo;{knowledgeBase.name}&rdquo;. This cannot be undone.</DialogDescription>
-        </DialogHeader>
-        {deleteError && <Alert variant="error">{deleteError}</Alert>}
-        <DialogFooter>
-          <Button variant="outline" disabled={pending === "delete"} onClick={() => setConfirmDelete(false)}>Keep knowledge base</Button>
-          <Button variant="destructive" loading={pending === "delete"} onClick={() => void remove()}>Delete permanently</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    {notice && <Alert variant="success" className="mb-6">{notice}</Alert>}
+
+    <section aria-labelledby="sources-heading">
+      <SectionHeader id="sources-heading" title="Sources" count={sources?.length || undefined} />
+
+      {uploads.items.length > 0 && <UploadTray
+        items={uploads.items}
+        onRetry={uploads.retry}
+        onDismiss={uploads.dismiss}
+        onClearFailed={uploads.clearFailed}
+      />}
+
+      {sourcesError && sources === null ? (
+        <LoadError message={sourcesError} onRetry={() => { setSourcesError(""); void loadSources(); }} />
+      ) : sources === null ? (
+        <RowListPlaceholder label="Loading sources..." />
+      ) : sources.length === 0 ? (
+        <EmptyState
+          icon={CloudUpload}
+          headingLevel="h3"
+          className="border-dashed border-input"
+          title="Add the first sources"
+          description={<>Drag files anywhere onto this page, or choose them from your computer. {FILE_RULES_TEXT}</>}
+          actions={<>
+            <Button variant="outline" onClick={chooseFiles}><Upload aria-hidden="true" />Choose files</Button>
+            <Button variant="outline" onClick={() => open("web-page")}><Globe aria-hidden="true" />Add web page</Button>
+          </>}
+        />
+      ) : <>
+        <SourceList sources={sources} onDelete={source => { setSourceToDelete(source); open("delete-source"); }} />
+        <p className="mt-4 text-xs text-muted-foreground">
+          Sources are stored as soon as you add them. Reading and indexing them for questions comes in a later step.
+          Drag more files onto this page at any time.
+        </p>
+      </>}
+    </section>
+
+    <DropOverlay visible={dragging} knowledgeBaseName={knowledgeBase.name} />
+
+    <AddWebPageDialog
+      workspaceId={workspaceId}
+      knowledgeBaseId={knowledgeBase.id}
+      open={dialog === "web-page"}
+      onOpenChange={next => setDialog(next ? "web-page" : "")}
+      onAdded={source => {
+        setSources(current => (current ? [source, ...current] : current));
+        setDialog("");
+        setNotice("Web page added.");
+      }}
+    />
+    <EditKnowledgeBaseDialog
+      knowledgeBase={knowledgeBase}
+      open={dialog === "edit"}
+      onOpenChange={next => setDialog(next ? "edit" : "")}
+      onSaved={saved => { setKnowledgeBase(saved); setDialog(""); setNotice("Changes saved."); }}
+    />
+    <ConfirmDeleteDialog
+      open={dialog === "delete-knowledge-base"}
+      onOpenChange={next => setDialog(next ? "delete-knowledge-base" : "")}
+      title="Delete this knowledge base?"
+      description={<>This permanently deletes the knowledge base &ldquo;{knowledgeBase.name}&rdquo; and all of its sources. This cannot be undone.</>}
+      keepLabel="Keep knowledge base"
+      onConfirm={removeKnowledgeBase}
+    />
+    <ConfirmDeleteDialog
+      open={dialog === "delete-source"}
+      onOpenChange={next => setDialog(next ? "delete-source" : "")}
+      title="Delete this source?"
+      description={sourceToDelete?.type === "web_page"
+        ? <>This removes the web page &ldquo;{sourceTitle(sourceToDelete)}&rdquo; from this knowledge base. This cannot be undone.</>
+        : <>This permanently deletes &ldquo;{sourceToDelete ? sourceTitle(sourceToDelete) : ""}&rdquo; and its stored file. This cannot be undone.</>}
+      keepLabel="Keep source"
+      onConfirm={removeSource}
+      focusAfterDelete={() => document.getElementById("sources-heading")}
+    />
   </div>;
 }

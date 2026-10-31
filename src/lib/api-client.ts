@@ -23,6 +23,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
+  /** A plain value is sent as JSON. FormData is sent as multipart (file uploads). */
   body?: unknown;
 };
 
@@ -31,13 +32,15 @@ type RequestOptions = {
  * failures look like { statusCode, message }.
  */
 export async function apiRequest<T>(path: string, { method = "GET", body }: RequestOptions = {}): Promise<T> {
+  // For FormData the browser sets the multipart Content-Type itself, including the boundary.
+  const isForm = body instanceof FormData;
   let response: Response;
   try {
     response = await fetch(`${baseURL}${path}`, {
       method,
       credentials: "include",
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: body === undefined || isForm ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiRequestError(0, "Could not reach the server. Check your connection and try again.");
